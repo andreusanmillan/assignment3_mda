@@ -1,0 +1,307 @@
+---
+title: "Assignment 3"
+author: "Ferran Carrascosa"
+date: "31/10/2024"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: '4'
+  html_document:
+    toc: true
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Assignment 3
+
+Exercise 1: continue the PCA analysis in Assignment 2 and do the following steps:
+
+1. Do a SVD decomposition of Xs and prepare the quantities you need for a biplot using the first two components:
+
+i. The matrix 𝑈̃including the coordinates of the rows of Xs (the observations)
+
+ii.The matrix 𝑉̃ including the coordinates of the columns of Xs (the observations)
+
+2. Make a plot of the variables of Xs based on the SVD
+
+3. Do a joint plot of the individuals and the variables; i.e. do the biplot
+
+Recall that we commented that it was possible that it was possible to “plot the variables” using the correlation between Principal components and the variable in Xs, and then use the entries of the correlation matrix as coordinates of the plot.
+
+4. Compute the correlation matrix W between the PC components and Xs, the original variables standardized . The matrix W entries are the pairwise correlations.
+
+5. Using the first two columns do a variable graph for this PCA. Compare it to the plot obtained in 2.
+
+6. BONUS: quantify the uncertainty in the number of selected components using the boostrap.
+
+```{r}
+datafr = read.table("https://www.econ.upf.edu/~satorra/dades/AMD1.txt", header=T)
+
+rownames(datafr) <- datafr[,1]  # country names to rownames of data.frame
+datafr <- datafr[,-1]           # selecting all columns except first (contries)
+
+head(datafr)
+```
+
+Data frame descriptives.
+
+```{r}
+summary(datafr)
+```
+```{r}
+
+######### working with the data frame
+n = dim(datafr)[1]
+p = dim(datafr)[2]
+
+# Transforming it to a matrix
+X = data.matrix(datafr)
+
+Xc = scale(X, center=TRUE, scale=FALSE)
+Xs = scale(X, center=TRUE, scale=TRUE)
+round(Xs,3) 
+
+```
+
+### Q1. Do a SVD decomposition of Xs and prepare the quantities you need for a biplot using the first two components:
+
+#i. The matrix 𝑈̃including the coordinates of the rows of Xs (the observations)
+
+#ii.The matrix 𝑉̃ including the coordinates of the columns of Xs (the observations)
+
+```{r}
+svd_result <- svd(Xs)
+
+U <- svd_result$u
+Sigma <- svd_result$d
+V <- svd_result$v
+
+tilde_U <- U[, 1:2] %*% diag(Sigma[1:2])
+
+tilde_V <- V[, 1:2]
+
+obs_df <- data.frame(PC1 = tilde_U[, 1], PC2 = tilde_U[, 2])
+
+plot(tilde_U, 
+     xlab = "PC1", 
+     ylab = "PC2", 
+     main = "Biplot of PCA", 
+     pch = 19, 
+     col = rgb(0, 0, 1, 0.7))  
+
+arrows(0, 0, tilde_V[, 1], tilde_V[, 2], 
+       col = "red", 
+       length = 0,01)
+
+text(tilde_V[, 1], tilde_V[, 2], 
+     labels = colnames(Xs), 
+     col = "red", 
+     cex = 0.5)
+
+
+```
+
+
+### Q2. Make a plot of the variables of Xs based on the SVD
+
+```{r}
+PC1 <- U[, 1] * Sigma[1]  
+PC2 <- U[, 2] * Sigma[2]  
+
+plot_data <- data.frame(PC1, PC2)
+
+variable_loadings <- V[, 1:2]  
+variable_names <- colnames(Xs) 
+
+variable_plot_data <- data.frame(variable_loadings, variable = variable_names)
+
+plot(PC1, PC2,
+     xlab = "PC1",
+     ylab = "PC2",
+     main = "Biplot of SVD Components",
+     pch = 19,        
+     col = rgb(0, 0, 1, 0.5))  
+arrows(0, 0, V[, 1], V[, 2], 
+       length = 0.1, 
+       col = "red")
+text(V[, 1], V[, 2], labels = colnames(Xs), pos = 4, col = "black")
+```
+
+
+### Q3. Do a joint plot of the individuals and the variables; i.e. do the biplot. 
+
+Recall that we commented that it was possible that it was possible to “plot the variables” using the correlation between Principal components and the variable in Xs, and then use the entries of the correlation matrix as coordinates of the plot.
+
+```{r}
+plot(PC1, PC2,
+     xlab = "PC1",
+     ylab = "PC2",
+     main = "Biplot of Individuals and Variables",
+     pch = 19,
+     col = rgb(0, 0, 1, 0.5),  
+     cex = 0.5)  
+correlation_matrix <- cor(Xs, cbind(PC1, PC2))
+var_loadings <- correlation_matrix[, 1:2]
+arrows(0, 0, var_loadings[, 1] * 0.5, var_loadings[, 2] * 0.5, 
+       length = 0.1,  
+       col = "red", 
+       lwd = 2)       
+
+text(var_loadings[, 1] * 0.5, var_loadings[, 2] * 0.5, 
+     labels = colnames(Xs), 
+     pos = 4, col = "black", cex = 0.6)  
+```
+
+### Q4. Compute the correlation matrix W between the PC components and Xs, the original variables standardized . The matrix W entries are the pairwise correlations.
+
+```{r}
+Xs_standardized <- scale(Xs)
+
+PCs <- data.frame(PC1, PC2)
+
+W <- cor(PCs, Xs_standardized)
+
+print(W)
+```
+
+### Q5. Using the first two columns do a variable graph for this PCA. Compare it to the plot obtained in 2.
+
+```{r}
+plot(PC1, PC2,
+     xlab = "PC1",
+     ylab = "PC2",
+     main = "Biplot of Individuals and Variables",
+     pch = 19,
+     col = rgb(0, 0, 1, 0.5),  
+     cex = 1.5)  
+
+W <- cor(Xs_standardized, cbind(PC1, PC2))
+
+var_loadings <- W[, 1:2]
+
+arrows(0, 0, var_loadings[, 1] * 0.5, var_loadings[, 2] * 0.5,
+       length = 0.2,  
+       col = "red", 
+       lwd = 2)       
+
+
+text(var_loadings[, 1] * 0.5, var_loadings[, 2] * 0.5, 
+     labels = colnames(Xs), 
+     pos = 4, col = "black", cex = 0.5)  
+
+
+grid()
+```
+
+### Q6. BONUS: quantify the uncertainty in the number of selected components using the boostrap.
+
+```{r}
+
+```
+
+### Exercise 2: Consider the following matrix X:
+
+X = matrix( c(0,     1,      2,
+     1,     0,      3,
+     2,     3,      0,
+     3,     4,      1,
+     6,     3,      2,
+     2,     5,      7), nrow=6,ncol=3,byrow=TRUE)
+
+1. Find the matrix A (6 x 3) that has rank 1. You may have more than one possible rank 1 approximation, choose the one that represents the best approximation to X in a sense that minimizes the sum of squares of the residuals.
+
+2. Do the same as the previous point, but find a matrix A of rank
+
+3. Find the sum of squares of the residuals in both cases and justify its value in terms of eigen-values of the matrix X’X.
+
+```{r}
+# Define the matrix X
+X <- matrix(c(0, 1, 2,
+               1, 0, 3,
+               2, 3, 0,
+               3, 4, 1,
+               6, 3, 2,
+               2, 5, 7), nrow = 6, ncol = 3, byrow = TRUE)
+X
+
+```
+
+### Q1. Find the matrix A (6 x 3) that has rank 1. You may have more than one possible rank 1 approximation, choose the one that represents the best approximation to X in a sense that minimizes the sum of squares of the residuals.
+
+```{r}
+svd_result <- svd(X)
+
+u1 <- svd_result$u[, 1]  
+v1 <- svd_result$v[, 1]  
+s1 <- svd_result$d[1]    
+
+A <- u1 %*% t(v1) * s1
+
+print(A)
+
+residuals <- X - A
+sum_of_squares <- sum(residuals^2)
+
+print(residuals)
+print(sum_of_squares)
+```
+
+### Q2. Do the same as the previous point, but find a matrix A of rank.
+
+```{r}
+u1 <- svd_result$u[, 1]  
+u2 <- svd_result$u[, 2]  
+v1 <- svd_result$v[, 1]  
+v2 <- svd_result$v[, 2]  
+s1 <- svd_result$d[1]    
+s2 <- svd_result$d[2]    
+
+A <- (u1 %*% t(v1) * s1) + (u2 %*% t(v2) * s2)
+
+print("Rank 2 Approximation A:")
+print(A)
+
+residuals <- X - A
+sum_of_squares <- sum(residuals^2)
+
+print("Residuals:")
+print(residuals)
+print("Sum of squares of the residuals:")
+print(sum_of_squares)
+```
+
+### Q3. Find the sum of squares of the residuals in both cases and justify its value in terms of eigen-values of the matrix X’X.
+
+```{r}
+s1 <- svd_result$d[1]    
+s2 <- svd_result$d[2]    
+
+u1 <- svd_result$u[, 1]
+v1 <- svd_result$v[, 1]
+A_rank1 <- u1 %*% t(v1) * s1
+
+u2 <- svd_result$u[, 2]
+v2 <- svd_result$v[, 2]
+A_rank2 <- (u1 %*% t(v1) * s1) + (u2 %*% t(v2) * s2)
+
+residuals_rank1 <- X - A_rank1
+residuals_rank2 <- X - A_rank2
+
+sum_of_squares_rank1 <- sum(residuals_rank1^2)
+sum_of_squares_rank2 <- sum(residuals_rank2^2)
+
+X_transpose_X <- t(X) %*% X
+eigen_values <- eigen(X_transpose_X)$values
+
+print("Sum of squares of residuals for Rank 1:")
+print(sum_of_squares_rank1)
+
+print("Sum of squares of residuals for Rank 2:")
+print(sum_of_squares_rank2)
+
+print("Eigenvalues of X'X:")
+print(eigen_values)
+```
